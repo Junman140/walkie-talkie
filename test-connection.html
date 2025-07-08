@@ -1,0 +1,358 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Connection Test - Walkie-Talkie</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+        
+        .test-section h3 {
+            margin-top: 0;
+            color: #555;
+        }
+        
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            font-weight: bold;
+        }
+        
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        button:hover {
+            background: #0056b3;
+        }
+        
+        button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+        }
+        
+        input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            margin: 5px 0;
+            box-sizing: border-box;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Walkie-Talkie Connection Test</h1>
+        
+        <div class="info">
+            <strong>Purpose:</strong> This page helps you test your connection and microphone before using the walkie-talkie app.
+        </div>
+        
+        <!-- Connection Test -->
+        <div class="test-section">
+            <h3>🌐 Connection Test</h3>
+            <input type="text" id="serverIP" placeholder="Server IP (e.g., 192.168.1.100)" value="localhost">
+            <input type="text" id="serverPort" placeholder="Port" value="3000">
+            <button onclick="testConnection()">Test Connection</button>
+            <div id="connectionStatus"></div>
+        </div>
+        
+        <!-- WebSocket Test -->
+        <div class="test-section">
+            <h3>🔌 WebSocket Test</h3>
+            <button onclick="testWebSocket()">Test WebSocket</button>
+            <div id="websocketStatus"></div>
+        </div>
+        
+        <!-- Microphone Test -->
+        <div class="test-section">
+            <h3>🎤 Microphone Test</h3>
+            <button onclick="testMicrophone()">Test Microphone</button>
+            <button onclick="stopMicrophoneTest()" id="stopMicBtn" disabled>Stop Test</button>
+            <div id="microphoneStatus"></div>
+            <div id="audioVisualizer" style="display: none;">
+                <canvas id="audioCanvas" width="300" height="100" style="border: 1px solid #ddd;"></canvas>
+            </div>
+        </div>
+        
+        <!-- Browser Info -->
+        <div class="test-section">
+            <h3>📱 Browser Information</h3>
+            <div id="browserInfo"></div>
+        </div>
+        
+        <!-- Recommendations -->
+        <div class="test-section">
+            <h3>💡 Recommendations</h3>
+            <div id="recommendations"></div>
+        </div>
+    </div>
+
+    <script>
+        let audioContext;
+        let analyser;
+        let microphone;
+        let animationId;
+        
+        // Display browser info
+        function showBrowserInfo() {
+            const info = document.getElementById('browserInfo');
+            const isSecure = window.isSecureContext;
+            const userAgent = navigator.userAgent;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(userAgent);
+            
+            info.innerHTML = `
+                <div class="status ${isSecure ? 'success' : 'warning'}">
+                    🔒 Secure Context: ${isSecure ? 'Yes' : 'No'} ${!isSecure ? '(HTTPS required for microphone)' : ''}
+                </div>
+                <div class="status ${isMobile ? 'warning' : 'success'}">
+                    📱 Device: ${isMobile ? 'Mobile' : 'Desktop'}
+                </div>
+                <div class="status success">
+                    🌐 Browser: ${navigator.userAgent.split('(')[1].split(')')[0]}
+                </div>
+                <div class="status ${navigator.mediaDevices ? 'success' : 'error'}">
+                    🎤 MediaDevices API: ${navigator.mediaDevices ? 'Supported' : 'Not Supported'}
+                </div>
+            `;
+        }
+        
+        // Test basic connection
+        async function testConnection() {
+            const status = document.getElementById('connectionStatus');
+            const ip = document.getElementById('serverIP').value;
+            const port = document.getElementById('serverPort').value;
+            
+            status.innerHTML = '<div class="status warning">Testing connection...</div>';
+            
+            try {
+                const response = await fetch(`http://${ip}:${port}/`, { 
+                    method: 'GET',
+                    mode: 'no-cors'
+                });
+                status.innerHTML = '<div class="status success">✅ Connection successful!</div>';
+            } catch (error) {
+                status.innerHTML = `<div class="status error">❌ Connection failed: ${error.message}</div>`;
+            }
+        }
+        
+        // Test WebSocket
+        function testWebSocket() {
+            const status = document.getElementById('websocketStatus');
+            const ip = document.getElementById('serverIP').value;
+            const port = document.getElementById('serverPort').value;
+            const isSecure = window.location.protocol === 'https:';
+            const wsProtocol = isSecure ? 'wss' : 'ws';
+            
+            status.innerHTML = '<div class="status warning">Testing WebSocket...</div>';
+            
+            try {
+                const ws = new WebSocket(`${wsProtocol}://${ip}:${port}`);
+                
+                ws.onopen = () => {
+                    status.innerHTML = '<div class="status success">✅ WebSocket connection successful!</div>';
+                    ws.close();
+                };
+                
+                ws.onerror = (error) => {
+                    status.innerHTML = `<div class="status error">❌ WebSocket failed: ${error.message || 'Connection error'}</div>`;
+                };
+                
+                setTimeout(() => {
+                    if (ws.readyState !== WebSocket.OPEN) {
+                        status.innerHTML = '<div class="status error">❌ WebSocket connection timeout</div>';
+                    }
+                }, 5000);
+                
+            } catch (error) {
+                status.innerHTML = `<div class="status error">❌ WebSocket error: ${error.message}</div>`;
+            }
+        }
+        
+        // Test microphone
+        async function testMicrophone() {
+            const status = document.getElementById('microphoneStatus');
+            const stopBtn = document.getElementById('stopMicBtn');
+            const visualizer = document.getElementById('audioVisualizer');
+            
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                status.innerHTML = '<div class="status error">❌ MediaDevices API not supported</div>';
+                return;
+            }
+            
+            try {
+                status.innerHTML = '<div class="status warning">Requesting microphone access...</div>';
+                
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true
+                    } 
+                });
+                
+                status.innerHTML = '<div class="status success">✅ Microphone access granted!</div>';
+                stopBtn.disabled = false;
+                visualizer.style.display = 'block';
+                
+                // Set up audio visualization
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                analyser = audioContext.createAnalyser();
+                microphone = audioContext.createMediaStreamSource(stream);
+                
+                microphone.connect(analyser);
+                analyser.fftSize = 256;
+                
+                const bufferLength = analyser.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                const canvas = document.getElementById('audioCanvas');
+                const ctx = canvas.getContext('2d');
+                
+                function draw() {
+                    animationId = requestAnimationFrame(draw);
+                    
+                    analyser.getByteFrequencyData(dataArray);
+                    
+                    ctx.fillStyle = 'rgb(200, 200, 200)';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    
+                    const barWidth = (canvas.width / bufferLength) * 2.5;
+                    let barHeight;
+                    let x = 0;
+                    
+                    for(let i = 0; i < bufferLength; i++) {
+                        barHeight = dataArray[i] / 2;
+                        
+                        ctx.fillStyle = `rgb(${barHeight + 100},50,50)`;
+                        ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
+                        
+                        x += barWidth + 1;
+                    }
+                }
+                
+                draw();
+                
+            } catch (error) {
+                let errorMessage = 'Unknown error';
+                if (error.name === 'NotAllowedError') {
+                    errorMessage = 'Microphone access denied. Please allow permissions.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage = 'No microphone found.';
+                } else if (error.name === 'NotSupportedError') {
+                    errorMessage = 'Microphone not supported. Use HTTPS.';
+                } else {
+                    errorMessage = error.message;
+                }
+                
+                status.innerHTML = `<div class="status error">❌ Microphone error: ${errorMessage}</div>`;
+            }
+        }
+        
+        function stopMicrophoneTest() {
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+            if (audioContext) {
+                audioContext.close();
+            }
+            
+            document.getElementById('microphoneStatus').innerHTML = '<div class="status warning">Microphone test stopped</div>';
+            document.getElementById('stopMicBtn').disabled = true;
+            document.getElementById('audioVisualizer').style.display = 'none';
+        }
+        
+        // Show recommendations
+        function showRecommendations() {
+            const recs = document.getElementById('recommendations');
+            const isSecure = window.isSecureContext;
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            
+            let recommendations = [];
+            
+            if (!isSecure) {
+                recommendations.push('🔒 Use HTTPS for microphone access (https://[IP]:3443)');
+            }
+            
+            if (isMobile) {
+                recommendations.push('📱 On mobile: Use HTTPS and ensure you\'re on the same WiFi network');
+            }
+            
+            if (!navigator.mediaDevices) {
+                recommendations.push('🎤 Use a modern browser (Chrome, Firefox, Safari)');
+            }
+            
+            recommendations.push('🌐 Make sure all devices are on the same WiFi network');
+            recommendations.push('🔧 If tests fail, try restarting the server');
+            
+            recs.innerHTML = recommendations.map(rec => `<div class="status warning">${rec}</div>`).join('');
+        }
+        
+        // Initialize page
+        window.addEventListener('load', () => {
+            showBrowserInfo();
+            showRecommendations();
+        });
+    </script>
+</body>
+</html> 

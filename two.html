@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church Media Team Walkie-Talkie</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .user-setup {
+            margin-bottom: 20px;
+        }
+        
+        .user-setup input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        
+        .user-setup button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        .user-setup button:hover {
+            background: #0056b3;
+        }
+        
+        .talk-button {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: all 0.3s ease;
+            background: #28a745;
+            color: white;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+        
+        .talk-button.talking {
+            background: #dc3545;
+            transform: scale(1.1);
+        }
+        
+        .talk-button:active {
+            transform: scale(0.95);
+        }
+        
+        .messages {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+            font-size: 14px;
+        }
+        
+        .message.own {
+            background: #007bff;
+            color: white;
+            text-align: right;
+        }
+        
+        .message.other {
+            background: #e9ecef;
+            color: #333;
+        }
+        
+        .message.system {
+            background: #fff3cd;
+            color: #856404;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .audio-controls {
+            text-align: center;
+            margin: 20px 0;
+        }
+        
+        .audio-controls button {
+            margin: 5px;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        
+        .play-btn {
+            background: #28a745;
+            color: white;
+        }
+        
+        .stop-btn {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .record-info {
+            text-align: center;
+            margin: 10px 0;
+            font-size: 14px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Church Media Team</h1>
+        
+        <div id="status" class="status">
+            Ready to connect
+        </div>
+        
+        <div id="userSetup" class="user-setup">
+            <input type="text" id="username" placeholder="Enter your name (e.g., Camera 1, Sound)" maxlength="20">
+            <button onclick="joinChannel()">Join Channel</button>
+        </div>
+        
+        <div id="mainApp" class="hidden">
+            <div id="messages" class="messages"></div>
+            
+            <div class="record-info">
+                <div id="recordStatus">Hold button to record audio message</div>
+                <div id="recordTime"></div>
+            </div>
+            
+            <button id="talkButton" class="talk-button">
+                HOLD TO TALK
+            </button>
+            
+            <div class="audio-controls">
+                <button onclick="playLastRecording()" class="play-btn">Play Last Recording</button>
+                <button onclick="clearMessages()" class="stop-btn">Clear Messages</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <strong>How to Use:</strong><br>
+            1. Enter your name/role and click "Join Channel"<br>
+            2. Hold the big button to record audio messages<br>
+            3. Release to stop recording<br>
+            4. Click "Play Last Recording" to hear your message<br>
+            5. Share this page with your team (same WiFi network)<br><br>
+            <strong>Note:</strong> This records audio messages locally. For real-time communication, everyone needs to be on the same page and can share audio files manually.
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let username = '';
+        let lastRecording = null;
+        let recordingStartTime = 0;
+        let recordingTimer = null;
+        
+        // Touch and mouse event handling
+        let isPressed = false;
+        
+        function joinChannel() {
+            username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            document.getElementById('userSetup').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            setupAudio();
+            addMessage(`${username} joined the channel`, 'system');
+        }
+        
+        async function setupAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 22050
+                    } 
+                });
+                
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    
+                    // Store the recording
+                    lastRecording = URL.createObjectURL(audioBlob);
+                    
+                    // Add message to log
+                    const duration = ((Date.now() - recordingStartTime) / 1000).toFixed(1);
+                    addMessage(`🎤 ${username} recorded a ${duration}s message`, 'own');
+                    
+                    // Update status
+                    document.getElementById('recordStatus').textContent = 'Recording saved! Hold button for new message';
+                    document.getElementById('recordTime').textContent = '';
+                };
+                
+                setupButtonEvents();
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                document.getElementById('status').textContent = 'Microphone access denied - please allow microphone access';
+                document.getElementById('status').className = 'status';
+                document.getElementById('status').style.background = '#f8d7da';
+                document.getElementById('status').style.color = '#721c24';
+            }
+        }
+        
+        function setupButtonEvents() {
+            const button = document.getElementById('talkButton');
+            
+            // Mouse events
+            button.addEventListener('mousedown', startRecording);
+            button.addEventListener('mouseup', stopRecording);
+            button.addEventListener('mouseleave', stopRecording);
+            
+            // Touch events
+            button.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startRecording();
+            });
+            
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                stopRecording();
+            });
+            
+            button.addEventListener('touchcancel', (e) => {
+                e.preventDefault();
+                stopRecording();
+            });
+        }
+        
+        function startRecording() {
+            if (isRecording || !mediaRecorder || isPressed) return;
+            
+            isPressed = true;
+            isRecording = true;
+            audioChunks = [];
+            recordingStartTime = Date.now();
+            
+            mediaRecorder.start();
+            
+            document.getElementById('talkButton').classList.add('talking');
+            document.getElementById('talkButton').textContent = 'RECORDING...';
+            document.getElementById('recordStatus').textContent = 'Recording audio message...';
+            
+            // Start timer
+            recordingTimer = setInterval(() => {
+                const elapsed = ((Date.now() - recordingStartTime) / 1000).toFixed(1);
+                document.getElementById('recordTime').textContent = `${elapsed}s`;
+            }, 100);
+        }
+        
+        function stopRecording() {
+            if (!isRecording || !mediaRecorder || !isPressed) return;
+            
+            isPressed = false;
+            isRecording = false;
+            
+            mediaRecorder.stop();
+            
+            document.getElementById('talkButton').classList.remove('talking');
+            document.getElementById('talkButton').textContent = 'HOLD TO TALK';
+            
+            // Stop timer
+            if (recordingTimer) {
+                clearInterval(recordingTimer);
+                recordingTimer = null;
+            }
+        }
+        
+        function playLastRecording() {
+            if (!lastRecording) {
+                alert('No recording available');
+                return;
+            }
+            
+            const audio = new Audio(lastRecording);
+            audio.play().catch(e => {
+                console.error('Error playing audio:', e);
+                alert('Could not play recording');
+            });
+            
+            addMessage(`🔊 Playing ${username}'s last message`, 'other');
+        }
+        
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+        
+        function addMessage(text, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = `${new Date().toLocaleTimeString()}: ${text}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.id === 'talkButton') {
+                e.preventDefault();
+            }
+        });
+        
+        // Prevent scrolling when touching the button
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.id === 'talkButton') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>

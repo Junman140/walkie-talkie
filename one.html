@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Church Media Team Walkie-Talkie</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            max-width: 400px;
+            width: 100%;
+        }
+        
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 30px;
+        }
+        
+        .status {
+            text-align: center;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .user-setup {
+            margin-bottom: 20px;
+        }
+        
+        .user-setup input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        
+        .user-setup button {
+            width: 100%;
+            padding: 12px;
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        
+        .user-setup button:hover {
+            background: #0056b3;
+        }
+        
+        .talk-button {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: none;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: all 0.3s ease;
+        }
+        
+        .talk-button.ready {
+            background: #28a745;
+            color: white;
+        }
+        
+        .talk-button.talking {
+            background: #dc3545;
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .talk-button.disabled {
+            background: #6c757d;
+            color: white;
+            cursor: not-allowed;
+        }
+        
+        .messages {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            background: #f8f9fa;
+            margin-bottom: 20px;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        .message.own {
+            background: #007bff;
+            color: white;
+            text-align: right;
+        }
+        
+        .message.other {
+            background: #e9ecef;
+            color: #333;
+        }
+        
+        .instructions {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Church Media Team</h1>
+        
+        <div id="status" class="status disconnected">
+            Setting up connection...
+        </div>
+        
+        <div id="userSetup" class="user-setup">
+            <input type="text" id="username" placeholder="Enter your name (e.g., Camera 1, Sound)" maxlength="20">
+            <button onclick="joinChannel()">Join Channel</button>
+        </div>
+        
+        <div id="mainApp" class="hidden">
+            <div id="messages" class="messages"></div>
+            
+            <button id="talkButton" class="talk-button disabled" 
+                    onmousedown="startTalking()" 
+                    onmouseup="stopTalking()" 
+                    ontouchstart="startTalking()" 
+                    ontouchend="stopTalking()">
+                HOLD TO TALK
+            </button>
+            
+            <div style="text-align: center; margin-top: 10px;">
+                <small>Hold button to talk, release to stop</small>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <strong>Setup Instructions:</strong><br>
+            1. One person needs to host this file on their phone using a simple HTTP server<br>
+            2. Others connect to the host's IP address<br>
+            3. Make sure all phones are on the same WiFi network<br>
+            4. Use earbuds to prevent audio feedback
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let username = '';
+        let connections = [];
+        let isHost = false;
+        let ws;
+        
+        // Simple WebRTC peer-to-peer connection for local network
+        let localConnection;
+        let remoteConnection;
+        let localStream;
+        let dataChannel;
+        
+        // Check if this is the host (first person to load the page)
+        function initializeApp() {
+            // Try to connect as client first
+            tryConnectAsClient();
+        }
+        
+        function tryConnectAsClient() {
+            // Try to connect to a host on the network
+            // This is a simplified approach - in a real scenario, you'd need more sophisticated peer discovery
+            updateStatus('Ready to connect', 'connected');
+        }
+        
+        function joinChannel() {
+            username = document.getElementById('username').value.trim();
+            if (!username) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            document.getElementById('userSetup').classList.add('hidden');
+            document.getElementById('mainApp').classList.remove('hidden');
+            
+            setupAudio();
+            updateStatus(`Connected as ${username}`, 'connected');
+            addMessage(`${username} joined the channel`, 'system');
+        }
+        
+        async function setupAudio() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 44100
+                    } 
+                });
+                localStream = stream;
+                
+                mediaRecorder = new MediaRecorder(stream, {
+                    mimeType: 'audio/webm;codecs=opus'
+                });
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    
+                    // Convert to base64 and broadcast
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const audioData = reader.result.split(',')[1];
+                        broadcastAudio(audioData);
+                    };
+                    reader.readAsDataURL(audioBlob);
+                };
+                
+                document.getElementById('talkButton').classList.remove('disabled');
+                document.getElementById('talkButton').classList.add('ready');
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                updateStatus('Microphone access denied', 'disconnected');
+            }
+        }
+        
+        function startTalking() {
+            if (isRecording || !mediaRecorder) return;
+            
+            isRecording = true;
+            audioChunks = [];
+            mediaRecorder.start();
+            
+            document.getElementById('talkButton').classList.remove('ready');
+            document.getElementById('talkButton').classList.add('talking');
+            document.getElementById('talkButton').textContent = 'TALKING...';
+            
+            addMessage(`${username} is talking...`, 'own');
+        }
+        
+        function stopTalking() {
+            if (!isRecording || !mediaRecorder) return;
+            
+            isRecording = false;
+            mediaRecorder.stop();
+            
+            document.getElementById('talkButton').classList.remove('talking');
+            document.getElementById('talkButton').classList.add('ready');
+            document.getElementById('talkButton').textContent = 'HOLD TO TALK';
+        }
+        
+        function broadcastAudio(audioData) {
+            // In a real implementation, this would send the audio to other clients
+            // For now, we'll just simulate receiving our own audio
+            setTimeout(() => {
+                receiveAudio(audioData, username);
+            }, 100);
+        }
+        
+        function receiveAudio(audioData, sender) {
+            if (sender === username) return; // Don't play back our own audio
+            
+            const audioBlob = new Blob([Uint8Array.from(atob(audioData), c => c.charCodeAt(0))], {
+                type: 'audio/webm'
+            });
+            
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            
+            audio.play().catch(e => console.error('Error playing audio:', e));
+            
+            addMessage(`🔊 ${sender}`, 'other');
+            
+            // Clean up
+            audio.addEventListener('ended', () => {
+                URL.revokeObjectURL(audioUrl);
+            });
+        }
+        
+        function addMessage(text, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = `${new Date().toLocaleTimeString()}: ${text}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // Initialize the app when page loads
+        window.addEventListener('load', initializeApp);
+        
+        // Prevent accidental page refresh
+        window.addEventListener('beforeunload', (e) => {
+            if (username) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
+    </script>
+</body>
+</html>

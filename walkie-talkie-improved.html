@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Walkie-Talkie</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            touch-action: manipulation;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 30px 20px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            max-width: 350px;
+            width: 90%;
+            text-align: center;
+        }
+        
+        h1 {
+            color: #333;
+            margin: 0 0 30px 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        
+        .status {
+            padding: 12px;
+            border-radius: 10px;
+            margin-bottom: 25px;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+        
+        .status.connected {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .status.disconnected {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .status.connecting {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        
+        .setup-section {
+            margin-bottom: 25px;
+        }
+        
+        .setup-section input {
+            width: 100%;
+            padding: 15px;
+            border: 2px solid #e1e5e9;
+            border-radius: 12px;
+            font-size: 16px;
+            margin-bottom: 15px;
+            transition: border-color 0.3s ease;
+        }
+        
+        .setup-section input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 12px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 10px;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+        
+        .btn-primary:active {
+            transform: translateY(0);
+        }
+        
+        .talk-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: none;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 20px auto;
+            display: block;
+            transition: all 0.3s ease;
+            background: #28a745;
+            color: white;
+            box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        .talk-button.talking {
+            background: #dc3545;
+            transform: scale(1.1);
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.4);
+        }
+        
+        .talk-button:active {
+            transform: scale(0.95);
+        }
+        
+        .talk-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .participants {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .participants h3 {
+            margin: 0 0 10px 0;
+            font-size: 16px;
+            color: #333;
+        }
+        
+        .participant {
+            padding: 8px 12px;
+            background: white;
+            border-radius: 8px;
+            margin: 5px 0;
+            font-size: 14px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .participant.talking {
+            border-left-color: #dc3545;
+            background: #fff5f5;
+        }
+        
+        .messages {
+            height: 200px;
+            overflow-y: auto;
+            border: 1px solid #e1e5e9;
+            border-radius: 12px;
+            padding: 15px;
+            background: #f8f9fa;
+            margin: 20px 0;
+            text-align: left;
+        }
+        
+        .chat-input-container {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .chat-input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #e1e5e9;
+            border-radius: 8px;
+            font-size: 14px;
+            resize: none;
+            font-family: inherit;
+        }
+        
+        .chat-input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .chat-send-btn {
+            padding: 12px 20px;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.3s ease;
+        }
+        
+        .chat-send-btn:hover {
+            background: #5a6fd8;
+        }
+        
+        .chat-send-btn:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        
+        .message {
+            margin-bottom: 8px;
+            padding: 8px 12px;
+            border-radius: 8px;
+            font-size: 13px;
+        }
+        
+        .message.own {
+            background: #667eea;
+            color: white;
+            text-align: right;
+        }
+        
+        .message.other {
+            background: white;
+            color: #333;
+            border: 1px solid #e1e5e9;
+        }
+        
+        .message.system {
+            background: #fff3cd;
+            color: #856404;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .message.chat {
+            background: #e3f2fd;
+            color: #1565c0;
+            border: 1px solid #bbdefb;
+        }
+        
+        .message.chat.own {
+            background: #667eea;
+            color: white;
+            text-align: right;
+        }
+        
+        .instructions {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 12px;
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #1565c0;
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        .server-info {
+            background: #f0f0f0;
+            border-radius: 8px;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 12px;
+            font-family: monospace;
+        }
+        
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin: 15px 0;
+        }
+        
+        .controls .btn {
+            flex: 1;
+            margin: 0;
+            padding: 10px;
+            font-size: 14px;
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎤 Walkie-Talkie</h1>
+        
+        <div id="status" class="status disconnected">
+            Ready to connect
+        </div>
+        
+        <!-- Setup Section -->
+        <div id="setupSection" class="setup-section">
+            <input type="text" id="username" placeholder="Your name (e.g., Camera 1, Sound)" maxlength="20">
+            <input type="text" id="serverIP" placeholder="Server IP (e.g., 192.168.1.100)" value="">
+            <input type="text" id="serverPort" placeholder="Port (default: 3000)" value="3000">
+            <button class="btn btn-primary" onclick="connectToServer()">Connect</button>
+            <div id="connectionHelp" style="margin-top: 10px; font-size: 12px; color: #666; text-align: left;">
+                <strong>Need help?</strong><br>
+                • Ask the host for their IP address<br>
+                • Make sure you're on the same WiFi network<br>
+                • Try the host's IP address (e.g., 192.168.1.100)
+            </div>
+        </div>
+        
+        <!-- Main App -->
+        <div id="mainApp" class="hidden">
+            <div class="participants">
+                <h3>👥 Participants</h3>
+                <div id="participantsList"></div>
+            </div>
+            
+            <div id="messages" class="messages"></div>
+            
+            <div class="chat-input-container">
+                <div style="flex: 1; position: relative;">
+                    <textarea 
+                        id="chatInput" 
+                        class="chat-input" 
+                        placeholder="Type your message here... (Enter to send, Shift+Enter for new line)" 
+                        rows="2"
+                        maxlength="500"
+                        oninput="updateCharCount()"
+                    ></textarea>
+                    <div id="charCount" style="position: absolute; bottom: 5px; right: 10px; font-size: 11px; color: #666;">
+                        0/500
+                    </div>
+                </div>
+                <button id="chatSendBtn" class="chat-send-btn" onclick="sendChatMessage()">
+                    Send
+                </button>
+            </div>
+            
+            <button id="talkButton" class="talk-button" disabled>
+                HOLD TO TALK
+            </button>
+            
+            <div class="controls">
+                <button class="btn btn-secondary" onclick="clearMessages()">Clear Chat</button>
+                <button class="btn btn-danger" onclick="disconnect()">Disconnect</button>
+            </div>
+        </div>
+        
+        <div class="instructions">
+            <strong>How to use:</strong><br>
+            1. One person runs the server (see instructions below)<br>
+            2. Everyone enters the server's IP address<br>
+            3. Hold the button to talk, release to stop<br>
+            4. Type messages in the chat box and press Enter to send<br>
+            5. Make sure all devices are on the same WiFi network<br><br>
+            <strong>⚠️ Important:</strong> Microphone access requires HTTPS or localhost
+        </div>
+        
+        <div class="server-info">
+            <strong>To start server:</strong><br>
+            <code>npm start</code> (Node.js) or <code>python simple_server.py</code><br>
+            <strong>Important:</strong> Share the IP address shown in the console with others<br>
+            <strong>Example:</strong> If console shows "192.168.1.100", others should enter that IP
+        </div>
+    </div>
+
+    <script>
+        let ws;
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let username = '';
+        let participants = new Set();
+        let isPressed = false;
+        let audioContext;
+        let audioDestination;
+        let connectionRetries = 0;
+        const MAX_RETRIES = 3;
+        
+        function connectToServer() {
+            username = document.getElementById('username').value.trim();
+            let serverIP = document.getElementById('serverIP').value.trim();
+            const serverPort = document.getElementById('serverPort').value.trim();
+            
+            if (!username) {
+                alert('Please enter your name');
+                return;
+            }
+            
+            if (!serverIP) {
+                alert('Please enter server IP address');
+                return;
+            }
+            
+            // If user entered "localhost", try to get the actual IP
+            if (serverIP === 'localhost' || serverIP === '127.0.0.1') {
+                serverIP = window.location.hostname;
+                document.getElementById('serverIP').value = serverIP;
+            }
+            
+            updateStatus('Connecting...', 'connecting');
+            connectionRetries = 0;
+            
+            attemptConnection(serverIP, serverPort);
+        }
+        
+        function attemptConnection(serverIP, serverPort) {
+            // Auto-detect if we should use HTTPS
+            const isSecure = window.location.protocol === 'https:';
+            const wsProtocol = isSecure ? 'wss' : 'ws';
+            
+            try {
+                const wsUrl = `${wsProtocol}://${serverIP}:${serverPort}`;
+                console.log('Attempting WebSocket connection to:', wsUrl);
+                ws = new WebSocket(wsUrl);
+                
+                ws.onopen = () => {
+                    connectionRetries = 0;
+                    updateStatus(`Connected as ${username}`, 'connected');
+                    document.getElementById('setupSection').classList.add('hidden');
+                    document.getElementById('mainApp').classList.remove('hidden');
+                    
+                    // Save session data
+                    saveSession();
+                    
+                    // Send join message
+                    ws.send(JSON.stringify({
+                        type: 'join',
+                        username: username
+                    }));
+                    
+                    setupAudio();
+                    addMessage(`${username} joined the channel`, 'system');
+                };
+                
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    handleMessage(data);
+                };
+                
+                ws.onclose = () => {
+                    updateStatus('Disconnected', 'disconnected');
+                    document.getElementById('talkButton').disabled = true;
+                    addMessage('Connection lost', 'system');
+                };
+                
+                ws.onerror = (error) => {
+                    console.error('WebSocket error:', error);
+                    connectionRetries++;
+                    
+                    if (connectionRetries < MAX_RETRIES) {
+                        updateStatus(`Connection failed, retrying... (${connectionRetries}/${MAX_RETRIES})`, 'connecting');
+                        setTimeout(() => {
+                            attemptConnection(serverIP, serverPort);
+                        }, 2000);
+                    } else {
+                        updateStatus('Connection failed after multiple attempts', 'disconnected');
+                        showConnectionHelp();
+                    }
+                };
+                
+            } catch (error) {
+                console.error('Connection error:', error);
+                updateStatus('Connection failed', 'disconnected');
+                showConnectionHelp();
+            }
+        }
+        
+        function showConnectionHelp() {
+            const helpDiv = document.getElementById('connectionHelp');
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            const isSecure = window.location.protocol === 'https:';
+            
+            let mobileSpecificHelp = '';
+            if (isMobile) {
+                mobileSpecificHelp = `
+                    <strong>📱 Mobile Device Issues:</strong><br>
+                    • Use HTTPS for microphone access: https://[IP]:3443<br>
+                    • Make sure you're on the same WiFi network<br>
+                    • Try the host's actual IP address (not localhost)<br>
+                    • Check if your browser supports WebSocket<br>
+                `;
+            }
+            
+            helpDiv.innerHTML = `
+                <strong style="color: #dc3545;">Connection Failed!</strong><br>
+                <strong>Try these solutions:</strong><br>
+                • Check if the server is running<br>
+                • Verify the IP address is correct<br>
+                • Make sure you're on the same WiFi network<br>
+                • Try using the host's actual IP (e.g., 192.168.1.100)<br>
+                • Check if port ${document.getElementById('serverPort').value} is correct<br>
+                • For microphone: use HTTPS (https://[IP]:3443)<br>
+                ${mobileSpecificHelp}
+                <strong>Server Commands:</strong><br>
+                • HTTP only: npm run http<br>
+                • HTTPS only: npm run https<br>
+                • Both: npm start
+            `;
+            helpDiv.style.color = '#dc3545';
+        }
+        
+        function handleMessage(data) {
+            switch (data.type) {
+                case 'join':
+                    participants.add(data.username);
+                    updateParticipantsList();
+                    addMessage(`${data.username} joined`, 'system');
+                    break;
+                    
+                case 'leave':
+                    participants.delete(data.username);
+                    updateParticipantsList();
+                    addMessage(`${data.username} left`, 'system');
+                    break;
+                    
+                case 'audio':
+                    if (data.username !== username) {
+                        playAudio(data.audioData);
+                        addMessage(`🔊 ${data.username}`, 'other');
+                    }
+                    break;
+                    
+                case 'chat':
+                    if (data.username !== username) {
+                        addMessage(`${data.username}: ${data.message}`, 'chat');
+                    }
+                    break;
+                    
+                case 'talking':
+                    updateParticipantTalking(data.username, true);
+                    break;
+                    
+                case 'stopped':
+                    updateParticipantTalking(data.username, false);
+                    break;
+            }
+        }
+        
+        async function setupAudio() {
+            // Check if MediaDevices API is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                console.error('MediaDevices API not supported');
+                updateStatus('Microphone not supported in this browser', 'disconnected');
+                showMicrophoneError('Your browser does not support microphone access. Please use Chrome, Firefox, or Safari.');
+                return;
+            }
+
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ 
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        sampleRate: 22050
+                    } 
+                });
+                
+                mediaRecorder = new MediaRecorder(stream);
+                
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+                
+                mediaRecorder.onstop = () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    audioChunks = [];
+                    
+                    // Convert to base64 and send
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        const audioData = reader.result.split(',')[1];
+                        if (ws && ws.readyState === WebSocket.OPEN) {
+                            ws.send(JSON.stringify({
+                                type: 'audio',
+                                username: username,
+                                audioData: audioData
+                            }));
+                        }
+                    };
+                    reader.readAsDataURL(audioBlob);
+                };
+                
+                setupButtonEvents();
+                document.getElementById('talkButton').disabled = false;
+                updateStatus(`Connected as ${username} (Microphone ready)`, 'connected');
+                
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                
+                if (error.name === 'NotAllowedError') {
+                    updateStatus('Microphone access denied', 'disconnected');
+                    showMicrophoneError('Microphone access was denied. Please allow microphone permissions and refresh the page.');
+                } else if (error.name === 'NotFoundError') {
+                    updateStatus('No microphone found', 'disconnected');
+                    showMicrophoneError('No microphone detected. Please connect a microphone and refresh the page.');
+                } else if (error.name === 'NotSupportedError') {
+                    updateStatus('Microphone not supported', 'disconnected');
+                    showMicrophoneError('Microphone access is not supported. Please use HTTPS or a different browser.');
+                } else {
+                    updateStatus('Microphone error', 'disconnected');
+                    showMicrophoneError('Error accessing microphone: ' + error.message);
+                }
+            }
+        }
+        
+        function showMicrophoneError(message) {
+            const helpDiv = document.getElementById('connectionHelp');
+            helpDiv.innerHTML = `
+                <strong style="color: #dc3545;">🎤 Microphone Issue</strong><br>
+                ${message}<br><br>
+                <strong>Solutions:</strong><br>
+                • Use HTTPS (https:// instead of http://)<br>
+                • Allow microphone permissions in browser<br>
+                • Try a different browser (Chrome/Safari)<br>
+                • Check if microphone is connected<br>
+                • Refresh the page after allowing permissions
+            `;
+            helpDiv.style.color = '#dc3545';
+        }
+        
+        function setupButtonEvents() {
+            const button = document.getElementById('talkButton');
+            
+            // Mouse events
+            button.addEventListener('mousedown', startTalking);
+            button.addEventListener('mouseup', stopTalking);
+            button.addEventListener('mouseleave', stopTalking);
+            
+            // Touch events
+            button.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                startTalking();
+            });
+            
+            button.addEventListener('touchend', (e) => {
+                e.preventDefault();
+                stopTalking();
+            });
+            
+            button.addEventListener('touchcancel', (e) => {
+                e.preventDefault();
+                stopTalking();
+            });
+        }
+        
+        function startTalking() {
+            if (isRecording || !mediaRecorder || isPressed) return;
+            
+            isPressed = true;
+            isRecording = true;
+            audioChunks = [];
+            
+            mediaRecorder.start();
+            
+            document.getElementById('talkButton').classList.add('talking');
+            document.getElementById('talkButton').textContent = 'TALKING...';
+            
+            // Notify others
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'talking',
+                    username: username
+                }));
+            }
+        }
+        
+        function stopTalking() {
+            if (!isRecording || !mediaRecorder || !isPressed) return;
+            
+            isPressed = false;
+            isRecording = false;
+            
+            mediaRecorder.stop();
+            
+            document.getElementById('talkButton').classList.remove('talking');
+            document.getElementById('talkButton').textContent = 'HOLD TO TALK';
+            
+            // Notify others
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'stopped',
+                    username: username
+                }));
+            }
+        }
+        
+        function playAudio(audioData) {
+            try {
+                const audioBlob = new Blob([Uint8Array.from(atob(audioData), c => c.charCodeAt(0))], {
+                    type: 'audio/webm'
+                });
+                
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                
+                audio.play().catch(e => console.error('Error playing audio:', e));
+                
+                // Clean up
+                audio.addEventListener('ended', () => {
+                    URL.revokeObjectURL(audioUrl);
+                });
+            } catch (error) {
+                console.error('Error playing audio:', error);
+            }
+        }
+        
+        function updateParticipantsList() {
+            const list = document.getElementById('participantsList');
+            list.innerHTML = '';
+            
+            participants.forEach(participant => {
+                const div = document.createElement('div');
+                div.className = 'participant';
+                div.id = `participant-${participant}`;
+                div.textContent = participant;
+                list.appendChild(div);
+            });
+        }
+        
+        function updateParticipantTalking(participantName, isTalking) {
+            const element = document.getElementById(`participant-${participantName}`);
+            if (element) {
+                if (isTalking) {
+                    element.classList.add('talking');
+                } else {
+                    element.classList.remove('talking');
+                }
+            }
+        }
+        
+        function sendChatMessage() {
+            const chatInput = document.getElementById('chatInput');
+            const message = chatInput.value.trim();
+            
+            if (!message || !ws || ws.readyState !== WebSocket.OPEN) {
+                return;
+            }
+            
+            // Send chat message to server
+            ws.send(JSON.stringify({
+                type: 'chat',
+                username: username,
+                message: message
+            }));
+            
+            // Add to local chat
+            addMessage(`You: ${message}`, 'chat own');
+            
+            // Clear input and update count
+            chatInput.value = '';
+            updateCharCount();
+            chatInput.focus();
+        }
+        
+        function updateCharCount() {
+            const chatInput = document.getElementById('chatInput');
+            const charCount = document.getElementById('charCount');
+            const count = chatInput.value.length;
+            charCount.textContent = `${count}/500`;
+            
+            // Change color when approaching limit
+            if (count > 450) {
+                charCount.style.color = '#dc3545';
+            } else if (count > 400) {
+                charCount.style.color = '#ffc107';
+            } else {
+                charCount.style.color = '#666';
+            }
+        }
+        
+        function clearMessages() {
+            document.getElementById('messages').innerHTML = '';
+        }
+        
+        function disconnect() {
+            if (ws) {
+                ws.close();
+            }
+            document.getElementById('setupSection').classList.remove('hidden');
+            document.getElementById('mainApp').classList.add('hidden');
+            participants.clear();
+            updateParticipantsList();
+            
+            // Clear saved session
+            localStorage.removeItem('walkieTalkie_username');
+            localStorage.removeItem('walkieTalkie_serverIP');
+            localStorage.removeItem('walkieTalkie_serverPort');
+        }
+        
+        function addMessage(text, type) {
+            const messagesDiv = document.getElementById('messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${type}`;
+            messageDiv.textContent = `${new Date().toLocaleTimeString()}: ${text}`;
+            messagesDiv.appendChild(messageDiv);
+            messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+        
+        function updateStatus(message, type) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.textContent = message;
+            statusDiv.className = `status ${type}`;
+        }
+        
+        // Prevent context menu on long press
+        document.addEventListener('contextmenu', (e) => {
+            if (e.target.id === 'talkButton') {
+                e.preventDefault();
+            }
+        });
+        
+        // Prevent scrolling when touching the button
+        document.addEventListener('touchmove', (e) => {
+            if (e.target.id === 'talkButton') {
+                e.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Check if we're in a secure context
+        function checkSecureContext() {
+            if (!window.isSecureContext) {
+                const helpDiv = document.getElementById('connectionHelp');
+                helpDiv.innerHTML = `
+                    <strong style="color: #ffc107;">⚠️ Security Notice</strong><br>
+                    Microphone access requires a secure connection.<br><br>
+                    <strong>Solutions:</strong><br>
+                    • Use HTTPS: https://[IP]:3000<br>
+                    • Or access via localhost on the host computer<br>
+                    • Some browsers allow HTTP on localhost
+                `;
+                helpDiv.style.color = '#856404';
+                helpDiv.style.background = '#fff3cd';
+                helpDiv.style.border = '1px solid #ffeaa7';
+                helpDiv.style.borderRadius = '8px';
+                helpDiv.style.padding = '10px';
+            }
+        }
+        
+        // Check secure context when page loads
+        window.addEventListener('load', checkSecureContext);
+        
+        // Load saved session data
+        window.addEventListener('load', loadSavedSession);
+        
+        function loadSavedSession() {
+            const savedUsername = localStorage.getItem('walkieTalkie_username');
+            const savedServerIP = localStorage.getItem('walkieTalkie_serverIP');
+            const savedServerPort = localStorage.getItem('walkieTalkie_serverPort');
+            
+            if (savedUsername) {
+                document.getElementById('username').value = savedUsername;
+            }
+            if (savedServerIP) {
+                document.getElementById('serverIP').value = savedServerIP;
+            }
+            if (savedServerPort) {
+                document.getElementById('serverPort').value = savedServerPort;
+            }
+            
+            // Auto-reconnect if we have saved session data
+            if (savedUsername && savedServerIP && savedServerPort) {
+                // Wait a moment for the page to fully load
+                setTimeout(() => {
+                    console.log('Auto-reconnecting with saved session...');
+                    connectToServer();
+                }, 1000);
+            }
+        }
+        
+        function saveSession() {
+            localStorage.setItem('walkieTalkie_username', username);
+            localStorage.setItem('walkieTalkie_serverIP', document.getElementById('serverIP').value);
+            localStorage.setItem('walkieTalkie_serverPort', document.getElementById('serverPort').value);
+        }
+        
+        // Chat keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            const chatInput = document.getElementById('chatInput');
+            
+            // Enter to send message (Shift+Enter for new line)
+            if (e.target === chatInput && e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+            
+            // Ctrl+Enter to send message (alternative)
+            if (e.target === chatInput && e.key === 'Enter' && e.ctrlKey) {
+                e.preventDefault();
+                sendChatMessage();
+            }
+        });
+        
+        // Handle page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'leave',
+                    username: username
+                }));
+            }
+        });
+    </script>
+</body>
+</html> 
